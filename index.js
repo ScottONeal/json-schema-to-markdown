@@ -105,7 +105,13 @@ function generateSchemaSectionText(octothorpes, name, isRequired, schema, subSch
 
 			if (validationItems.length > 0) {
 				validationItems.forEach(function(item) {
-					text = text.concat(generateSchemaSectionText(octothorpes, undefined, false, item, subSchemas))
+          if ( item['$ref'] ) {
+            let target = getRef(item['$ref'], subSchemas);
+      			text.push('* ' + `[${target.id || target.title }](${target.filePath.replace('.json', '.md')})`);
+          }
+          else {
+					   text = text.concat(generateSchemaSectionText(octothorpes, undefined, false, item, subSchemas))
+          }
 				})
 			}
 		}
