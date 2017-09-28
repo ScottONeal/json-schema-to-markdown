@@ -63,7 +63,12 @@ function generateSchemaSectionText(octothorpes, name, isRequired, schema, subSch
 		schema.description
 	]
 
-	if (schemaType === 'object') {
+  if ( schemaType === '$ref' ) {
+    let target = getRef(schema['$ref'], subSchemas);
+    text.push(module.exports(target));
+  }
+
+  if (schemaType === 'object') {
 		if (schema.properties) {
 			text.push('Properties of the `' + name + '` object:')
 			generatePropertySection(octothorpes, schema, subSchemas).forEach(function(section) {
@@ -114,7 +119,8 @@ function generateSchemaSectionText(octothorpes, name, isRequired, schema, subSch
 	} else if (schema.oneOf) {
 		text.push('The object must be one of the following types:')
 		text.push(schema.oneOf.map(function(oneOf) {
-			return '* `' + subSchemas[oneOf['$ref']] + '`'
+      let target = getRef(oneOf['$ref'], subSchemas);
+			return '* ' + `[${target.id || target.title }](${target.filePath.replace('.json', '.md')})`;
 		}).join('\n'))
 	}
 
@@ -164,21 +170,45 @@ function generatePropertySection(octothorpes, schema, subSchemas) {
 function getActualType(schema, subSchemas) {
 	if (schema.type) {
 		return schema.type
-	} else if (schema['$ref'] && subSchemas[schema['$ref']]) {
-		return subSchemas[schema['$ref']]
+	} else if (schema['$ref']) {
+    return '$ref';
 	} else {
 		return undefined
 	}
 }
 
-module.exports = function(schema, startingOctothorpes) {
+function getRef(ref, subSchemas) {
+  if ( ref.match(/^file:\/\//) ) {
+    let filePath = ref.replace(/^file:\/\//, '');
+    let target = require(`${process.cwd()}/${filePath}`);
+    target.filePath = filePath;
+    return target;
+  }
+  else if ( subSchemas[ref] ){
+    return subSchemas[ref];
+  }
+  return undefined;
+}
+
+module.exports = function(schema, options = {}) {
 	var subSchemaTypes = Object.keys(schema.definitions || {}).reduce(function(map, subSchemaTypeName) {
-		map['#/definitions/' + subSchemaTypeName] = subSchemaTypeName
+    if ( subSchemaTypeName === '$ref' ) {
+      let target = getRef(subSchemaTypeName, map);
+      map['#/definitions/' + target.id] = target;
+    }
+    else {
+  		map['#/definitions/' + subSchemaTypeName] = subSchemaTypeName
+    }
 		return map
+
 	}, {})
 
 	var text = []
-	var octothorpes = startingOctothorpes || ''
+	var octothorpes = options.startingOctothorpes || ''
+
+  if ( options.cwd ) {
+    process.chdir(options.cwd);
+  }
 
 	if (schema.title) {
 		octothorpes += '#'
