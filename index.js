@@ -69,7 +69,7 @@ function generateSchemaSectionText(octothorpes, name, isRequired, schema, subSch
   }
 
   if (schemaType === 'object') {
-		if (schema.properties) {
+		if (schema.properties || schema.patternProperties) {
 			text.push('Properties of the `' + name + '` object:')
 			generatePropertySection(octothorpes, schema, subSchemas).forEach(function(section) {
 				text = text.concat(section)
@@ -162,6 +162,13 @@ function generatePropertySection(octothorpes, schema, subSchemas) {
 			var propertyIsRequired = schema.required && schema.required.indexOf(propertyKey) >= 0
 			return generateSchemaSectionText(octothorpes + '#', propertyKey, propertyIsRequired, schema.properties[propertyKey], subSchemas)
 		})
+  } else if (schema.patternProperties) {
+    return Object.keys(schema.patternProperties).map(function(pattern) {
+      let propHeader = `${octothorpes} This is a wildcard property, which it's key must match the following regex: ${pattern}\n`;
+      let md = generateSchemaSectionText(octothorpes + '#', pattern, schema.required && schema.required.indexOf(pattern) >= 0, schema.patternProperties[pattern], subSchemas);
+
+      return propHeader + md;
+    });
 	} else if (schema.oneOf) {
 		var oneOfList = schema.oneOf.map(function(innerSchema) {
 
